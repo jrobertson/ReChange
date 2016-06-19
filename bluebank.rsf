@@ -1,0 +1,135 @@
+<package>
+  <job id='index'>
+    <script>
+      <![CDATA[
+
+require 'rdiscount'
+
+s =<<EOF
+# Bluebank documentation
+
+* [Developer Portal](https://bluebank.portal.azure-api.net/)
+
+# Bluebank API Links
+
+* [customers](customers)
+* [customers/57654eff0dc9b88512051658/accounts](customers/57654eff0dc9b88512051658/accounts)
+* [accounts/57654eff0dc9b88512051659](accounts/57654eff0dc9b88512051659)
+* [accounts/57654eff0dc9b88512051659/transactions](accounts/57654eff0dc9b88512051659/transactions)
+* [transactions?date=2015-11-17](transactions?date=2015-11-17)
+
+* [rounding](rounding?pounds=2.23)
+* [view rounding source code](/source/bluebank/rounding)
+* [view package bluebank source code](/source/bluebank)
+
+[reset](/do/r/reset)
+
+------
+
+EOF
+
+html = RDiscount.new(s).to_html
+
+html
+
+      ]]>
+    </script>
+  </job>
+  <job id='customers'>
+    <script src="bluebank.rb"/>
+    <script>
+      <![CDATA[
+
+      if args.length <= 0 then
+
+        uri = URI('https://bluebank.azure-api.net/api/v0.6.3/customers')
+
+      else
+
+        customer_id = args.first 
+        uri = URI("https://bluebank.azure-api.net/api/v0.6.3/customers/#{customer_id}/accounts")
+
+      end
+
+      response = get_response(uri)
+      [response.body, 'text/json']
+      
+
+      ]]>
+    </script>
+  </job>
+  <job id='accounts'>
+    <script src="bluebank.rb"/>    
+    <script>
+      <![CDATA[
+
+
+      if args.length <= 0 then
+
+        uri = URI('https://bluebank.azure-api.net/api/v0.6.3/accounts')
+
+      else
+
+        account_id, transactions = args
+
+        if transactions then 
+          uri = URI("https://bluebank.azure-api.net/api/v0.6.3/accounts/#{account_id}/transactions")
+        else
+          uri = URI("https://bluebank.azure-api.net/api/v0.6.3/accounts/#{account_id}")
+        end
+      end
+
+      response = get_response(uri)
+
+      [response.body, 'text/json']
+      
+
+      ]]>
+    </script>
+  </job>
+  
+  <job id='rounding'>
+    <script src="bluebank.rb"/>
+    <script>
+      <![CDATA[
+
+      money = (params['money'] || params['pounds']).to_f
+
+      newval = rounding(money)
+      {newval: newval, remainder: (money - newval).abs.round(2) }.inspect
+
+      ]]>
+    </script>
+  </job>
+
+  <job id='transactions'>
+    <script src="bluebank.rb"/>
+    <script>
+      <![CDATA[
+      
+      sdate = params['date']
+
+      uri = URI("https://bluebank.azure-api.net/api/v0.6.3/accounts/57654eff0dc9b88512051659/transactions")
+      response = get_response(uri)
+
+      a = JSON.parse response.body
+
+      # filtered by day 
+
+      date = Date.parse(sdate)
+      a2 = a.select {|x| Date.parse(x['transactionDateTime']) == date}
+
+      a3 =  a2.map do |x|
+        money = x["transactionAmount"].abs
+        newval = rounding(money) 
+        ["%.2f" % newval, (money - newval).abs.round(2)]
+      end
+
+      a3.inspect
+
+      ]]>
+    </script>
+  </job>
+
+
+</package>    
