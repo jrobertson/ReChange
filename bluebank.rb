@@ -20,6 +20,25 @@ def get_response(uri)
 
 end
 
+def post_response(uri, payload)
+
+  subscription_key, bearer = load_auth()
+
+  uri.query = URI.encode_www_form({
+  })
+
+  request = Net::HTTP::Post.new(uri.request_uri)
+  # Request headers
+  request['Ocp-Apim-Subscription-Key'] = subscription_key
+  request['bearer'] = bearer
+  request.body payload
+
+  response = Net::HTTP.start(uri.host, uri.port, :use_ssl => uri.scheme == 'https') do |http|
+      http.request(request)
+  end
+
+end
+
 def load_auth()
 
   s = File.read('auth.txt')
@@ -27,8 +46,9 @@ def load_auth()
 
 end
 
-def rounding(money)
+def rounding(raw_money)
 
+  money = raw_money.to_f
   # under 5 pounds
 
   newval = if money < 5 then
@@ -52,4 +72,10 @@ def rounding(money)
     v == money ? money : v+= 1
   end
 
+end
+
+def totalise_difference(a)
+  total = 0
+  a2 = a.each {|x| total += x.last}
+  total
 end

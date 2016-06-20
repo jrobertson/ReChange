@@ -6,9 +6,35 @@
 require 'rdiscount'
 
 s =<<EOF
-# Bluebank documentation
+<div style="background-color: transparent; float: right; width: 12em;">
 
-* [Developer Portal](https://bluebank.portal.azure-api.net/)
+<h1>Hackathon</h1>
+<ul>
+  <li>17-19 June 2016</li>
+</ul>
+<h2>Team members</h2>
+<ul>
+<li>Ranjit Nagubandii</li>
+<li>Yoonju Choi</li>
+<li>Rachel Painter</li>
+<li>James Robertson</li>
+<li>Jishiv Natarajan</li>
+</ul>
+<p>This source code is available from <a href="https://github.com/jrobertson/ReChange">github.com/jrobertson/ReChange</a></p>
+<p>See also the <a href="http://www.jamesrobertson.eu/projects/rechange/prototype/frame.html">prototype</a></p>
+
+
+</div>
+
+<div style="background-color: transparent; ">
+<h1>Bluebank documentation</h1>
+
+<ul>
+  <li><a href="https://bluebank.portal.azure-api.net/">Developer Portal</a></li>
+</ul>
+</div>
+
+<div style="clear: left"/>
 
 # Bluebank API Links
 
@@ -17,10 +43,18 @@ s =<<EOF
 * [accounts/57654eff0dc9b88512051659](accounts/57654eff0dc9b88512051659)
 * [accounts/57654eff0dc9b88512051659/transactions](accounts/57654eff0dc9b88512051659/transactions)
 * [transactions?date=2015-11-17](transactions?date=2015-11-17)
+* [transactionsrounding?date=2015-11-17](transactionsrounding?date=2015-11-17)
+* [total savings for day](transactions2?date=2015-11-16)
 
+# Demo tests
 * [rounding](rounding?pounds=2.23)
 * [view rounding source code](/source/bluebank/rounding)
 * [view package bluebank source code](/source/bluebank)
+* [clearstore](clearstore)
+
+* [add transactions](addnumbers)
+* [store.inspect](store)
+* [transactions date](transdate)
 
 [reset](/do/r/reset)
 
@@ -36,7 +70,7 @@ html
     </script>
   </job>
   <job id='customers'>
-    <script src="bluebank.rb"/>
+    <script src="http://a0.jamesrobertson.eu/projects/rechange/bluebank.rb"/>
     <script>
       <![CDATA[
 
@@ -59,7 +93,7 @@ html
     </script>
   </job>
   <job id='accounts'>
-    <script src="bluebank.rb"/>    
+    <script src="http://a0.jamesrobertson.eu/projects/rechange/bluebank.rb"/>    
     <script>
       <![CDATA[
 
@@ -89,7 +123,7 @@ html
   </job>
   
   <job id='rounding'>
-    <script src="bluebank.rb"/>
+    <script src="http://a0.jamesrobertson.eu/projects/rechange/bluebank.rb"/>
     <script>
       <![CDATA[
 
@@ -103,7 +137,58 @@ html
   </job>
 
   <job id='transactions'>
-    <script src="bluebank.rb"/>
+    <script src="http://a0.jamesrobertson.eu/projects/rechange/bluebank.rb"/>
+    <script>
+      <![CDATA[
+      
+      sdate = params['date']
+      return 'please enter a date' unless sdate
+
+      uri = URI("https://bluebank.azure-api.net/api/v0.6.3/accounts/57654eff0dc9b88512051659/transactions")
+      response = get_response(uri)
+
+      a = JSON.parse response.body
+
+      # filtered by day 
+
+      date = Date.parse(sdate)
+      a2 = a.select {|x| Date.parse(x['transactionDateTime']) == date}
+      a2.inspect
+      ]]>
+    </script>
+  </job>
+  <job id='transactionsrounding'>
+    <script src="http://a0.jamesrobertson.eu/projects/rechange/bluebank.rb"/>
+    <script>
+      <![CDATA[
+      
+      sdate = params['date']
+      return 'please enter a date' unless sdate
+
+      uri = URI("https://bluebank.azure-api.net/api/v0.6.3/accounts/57654eff0dc9b88512051659/transactions")
+      response = get_response(uri)
+
+      a = JSON.parse response.body
+
+      # filtered by day 
+
+      date = Date.parse(sdate)
+      a2 = a.select {|x| Date.parse(x['transactionDateTime']) == date}
+
+      a3 =  a2.map do |x|
+        money = x["transactionAmount"].abs
+        newval = rounding(money) 
+        [money, "%.2f" % newval, (money - newval).abs.round(2)]
+      end
+
+      a3.inspect
+
+      ]]>
+    </script>
+  </job>
+
+  <job id='transactions2'>
+    <script src="http://a0.jamesrobertson.eu/projects/rechange/bluebank.rb"/>
     <script>
       <![CDATA[
       
@@ -125,11 +210,114 @@ html
         ["%.2f" % newval, (money - newval).abs.round(2)]
       end
 
-      a3.inspect
+      "&pound;" + totalise_difference(a3).round(2).to_s
 
       ]]>
     </script>
   </job>
 
+  <job id='addpayment'>
+    <script src="http://a0.jamesrobertson.eu/projects/rechange/bluebank.rb"/>
+    <script>
+      <![CDATA[
 
+
+      id = '57654eff0dc9b88512051659'
+
+      uri = URI("https://bluebank.azure-api.net/api/v0.6.3/accounts/#{id}/payments")
+
+      body = {
+      "toAccountNumber" => "10000232",
+      "toSortCode" => "839999",
+      "paymentReference" => "Payment 22 May",
+      "paymentAmount" => "25.77"
+      }
+
+      response = post_response(uri, body.to_json)
+
+      response.body
+
+
+      ]]>
+    </script>
+  </job>
+  <job id='testrounding'>
+    <script src="http://a0.jamesrobertson.eu/projects/rechange/bluebank.rb"/>
+    <script>
+      <![CDATA[
+
+      @store ||= []
+
+      newval = rounding(params['number'].to_f)
+      @store << newval
+      newval.inspect
+
+      ]]>
+    </script>
+  </job>
+  <job id='store'>
+    <script src="http://a0.jamesrobertson.eu/projects/rechange/bluebank.rb"/>
+    <script>
+      <![CDATA[
+
+      @store.inspect
+      
+      ]]>
+    </script>
+  </job>
+
+  <job id='clearstore'>
+    <script>
+      <![CDATA[
+
+      @store = []
+      'store cleared'              
+      
+      ]]>
+    </script>
+  </job>
+
+  <job id='addnumbers'>
+    <script>
+      <![CDATA[
+
+s =<<EOF
+<html>
+  <head>Add payment</head>
+  <body>
+    <form action="/do/bluebank/testrounding">
+      <input name="number" value="0"></input>
+      <input type="submit"></input>
+    </form>
+  </body>
+
+</html>
+EOF
+s
+      ]]>
+
+    </script>
+  </job>
+
+  <job id='transdate'>
+    <script>
+      <![CDATA[
+
+s =<<EOF
+<html>
+  <head>Transactions date</head>
+  <body>
+    <form action="/do/bluebank/transactions">
+      <input name="date" value="2015-11-17"></input>
+      <input type="submit"></input>
+    </form>
+  </body>
+
+</html>
+EOF
+s
+      ]]>
+
+    </script>
+  </job>
 </package>    
